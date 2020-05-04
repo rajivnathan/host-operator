@@ -47,6 +47,11 @@ type BannedUserToUserSignupMapper struct {
 }
 
 type StatusUpdater func(userAcc *toolchainv1alpha1.UserSignup, message string) error
+type CompleteStatusUpdater func(userAcc *toolchainv1alpha1.UserSignup, secondaryStatus SecondaryStatus, message string) error
+
+type SecondaryStatus struct {
+	CompliantUsername string
+}
 
 func (b BannedUserToUserSignupMapper) Map(obj handler.MapObject) []reconcile.Request {
 	if bu, ok := obj.Object.(*toolchainv1alpha1.BannedUser); ok {
@@ -200,6 +205,7 @@ type ReconcileUserSignup struct {
 func (r *ReconcileUserSignup) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling UserSignup")
+	reqLogger.Info("Reconciling UserSignup - Rajiv")
 
 	// Fetch the UserSignup instance
 	instance := &toolchainv1alpha1.UserSignup{}
@@ -245,16 +251,16 @@ func (r *ReconcileUserSignup) Reconcile(request reconcile.Request) (reconcile.Re
 
 			hashIsValid := validateEmailHash(emailLbl, emailHashLbl)
 			if !hashIsValid {
-				return reconcile.Result{}, r.updateStatus(reqLogger, instance, r.setStatusInvalidEmailHash)
+				return reconcile.Result{}, r.updateStatusWrapper(reqLogger, instance, r.setStatusInvalidEmailHash)
 			}
 		} else {
 			// If there isn't an email-hash label, then the state is invalid
 			reqLogger.Info("missing label on usersignup", "label", toolchainv1alpha1.UserSignupUserEmailHashLabelKey)
-			return reconcile.Result{}, r.updateStatus(reqLogger, instance, r.setStatusMissingEmailHash)
+			return reconcile.Result{}, r.updateStatusWrapper(reqLogger, instance, r.setStatusMissingEmailHash)
 		}
 	} else {
 		reqLogger.Info("missing annotation on usersignup", "annotation", toolchainv1alpha1.UserSignupUserEmailAnnotationKey)
-		return reconcile.Result{}, r.updateStatus(reqLogger, instance, r.setStatusInvalidMissingUserEmailAnnotation)
+		return reconcile.Result{}, r.updateStatusWrapper(reqLogger, instance, r.setStatusInvalidMissingUserEmailAnnotation)
 	}
 
 	// List all MasterUserRecord resources that have a UserID label equal to the UserSignup.Name
@@ -286,20 +292,20 @@ func (r *ReconcileUserSignup) Reconcile(request reconcile.Request) (reconcile.Re
 		// If we successfully found an existing MasterUserRecord then our work here is done, set the status
 		// to Complete and return
 		reqLogger.Info("MasterUserRecord exists, setting UserSignup status to 'Complete'")
-		instance.Status.CompliantUsername = mur.Name
-		return reconcile.Result{}, r.updateStatus(reqLogger, instance, r.setStatusComplete)
+		secondaryStatus := SecondaryStatus{CompliantUsername: mur.Name}
+		return reconcile.Result{}, r.updateStatusCompleteWrapper(reqLogger, instance, secondaryStatus, r.setStatusComplete)
 	}
 
 	// If there is no MasterUserRecord created, yet the UserSignup is Banned, simply set the status
 	// and return
 	if banned {
-		return reconcile.Result{}, r.updateStatus(reqLogger, instance, r.setStatusBanned)
+		return reconcile.Result{}, r.updateStatusWrapper(reqLogger, instance, r.setStatusBanned)
 	}
 
 	// If there is no MasterUserRecord created, yet the UserSignup is marked as Deactivated, simply set the status
 	// and return
 	if instance.Spec.Deactivated {
-		return reconcile.Result{}, r.updateStatus(reqLogger, instance, r.setStatusDeactivated)
+		return reconcile.Result{}, r.updateStatusWrapper(reqLogger, instance, r.setStatusDeactivated)
 	}
 
 	// Check the user approval policy.
@@ -312,11 +318,11 @@ func (r *ReconcileUserSignup) Reconcile(request reconcile.Request) (reconcile.Re
 	// then proceed with the signup
 	if instance.Spec.Approved || userApprovalPolicy == configuration.UserApprovalPolicyAutomatic {
 		if instance.Spec.Approved {
-			if statusError := r.updateStatus(reqLogger, instance, r.setStatusApprovedByAdmin); statusError != nil {
+			if statusError := r.updateStatusWrapper(reqLogger, instance, r.setStatusApprovedByAdmin); statusError != nil {
 				return reconcile.Result{}, statusError
 			}
 		} else {
-			if statusError := r.updateStatus(reqLogger, instance, r.setStatusApprovedAutomatically); statusError != nil {
+			if statusError := r.updateStatusWrapper(reqLogger, instance, r.setStatusApprovedAutomatically); statusError != nil {
 				return reconcile.Result{}, statusError
 			}
 		}
@@ -333,7 +339,7 @@ func (r *ReconcileUserSignup) Reconcile(request reconcile.Request) (reconcile.Re
 				targetCluster = members[0].Name
 			} else {
 				reqLogger.Error(err, "No member clusters found")
-				if statusError := r.updateStatus(reqLogger, instance, r.setStatusNoClustersAvailable); statusError != nil {
+				if statusError := r.updateStatusWrapper(reqLogger, instance, r.setStatusNoClustersAvailable); statusError != nil {
 					return reconcile.Result{}, statusError
 				}
 
@@ -357,7 +363,7 @@ func (r *ReconcileUserSignup) Reconcile(request reconcile.Request) (reconcile.Re
 			return reconcile.Result{}, err
 		}
 	} else {
-		return reconcile.Result{}, r.updateStatus(reqLogger, instance, r.setStatusPendingApproval)
+		return reconcile.Result{}, r.updateStatusWrapper(reqLogger, instance, r.setStatusPendingApproval)
 	}
 
 	return reconcile.Result{}, nil
@@ -415,7 +421,7 @@ func transformUsername(username string) string {
 	if strings.HasSuffix(newUsername, "-") {
 		newUsername = newUsername + "crt"
 	}
-	return newUsername
+	return newUsername + "-new"
 }
 
 // provisionMasterUserRecord does the work of provisioning the MasterUserRecord
@@ -497,7 +503,7 @@ func (r *ReconcileUserSignup) DeleteMasterUserRecord(mur *toolchainv1alpha1.Mast
 	userSignup *toolchainv1alpha1.UserSignup, logger logr.Logger,
 	inProgressStatusUpdater, failedStatusUpdater StatusUpdater) (reconcile.Result, error) {
 
-	err := r.updateStatus(logger, userSignup, inProgressStatusUpdater)
+	err := r.updateStatusWrapper(logger, userSignup, inProgressStatusUpdater)
 	if err != nil {
 		return reconcile.Result{}, nil
 	}
@@ -636,17 +642,6 @@ func (r *ReconcileUserSignup) setStatusNoTemplateTierAvailable(userSignup *toolc
 		})
 }
 
-func (r *ReconcileUserSignup) setStatusComplete(userSignup *toolchainv1alpha1.UserSignup, message string) error {
-	return r.updateStatusConditions(
-		userSignup,
-		toolchainv1alpha1.Condition{
-			Type:    toolchainv1alpha1.UserSignupComplete,
-			Status:  corev1.ConditionTrue,
-			Reason:  "",
-			Message: message,
-		})
-}
-
 func (r *ReconcileUserSignup) setStatusBanning(userSignup *toolchainv1alpha1.UserSignup, message string) error {
 	return r.updateStatusConditions(
 		userSignup,
@@ -736,10 +731,36 @@ func (r *ReconcileUserSignup) setStatusInvalidEmailHash(userSignup *toolchainv1a
 		})
 }
 
-func (r *ReconcileUserSignup) updateStatus(logger logr.Logger, userSignup *toolchainv1alpha1.UserSignup,
-	statusUpdater func(userAcc *toolchainv1alpha1.UserSignup, message string) error) error {
+func (r *ReconcileUserSignup) setStatusComplete(userSignup *toolchainv1alpha1.UserSignup, secondaryStatus SecondaryStatus, message string) error {
+	return r.updateStatus(
+		userSignup,
+		secondaryStatus,
+		toolchainv1alpha1.Condition{
+			Type:    toolchainv1alpha1.UserSignupComplete,
+			Status:  corev1.ConditionTrue,
+			Reason:  "",
+			Message: message,
+		})
+}
+
+func (r *ReconcileUserSignup) updateStatusWrapper(logger logr.Logger, userSignup *toolchainv1alpha1.UserSignup,
+	statusUpdater StatusUpdater) error {
 
 	if err := statusUpdater(userSignup, ""); err != nil {
+		logger.Error(err, "status update failed")
+		return err
+	}
+
+	return nil
+}
+
+func (r *ReconcileUserSignup) updateStatusCompleteWrapper(
+	logger logr.Logger,
+	userSignup *toolchainv1alpha1.UserSignup,
+	secondaryStatus SecondaryStatus,
+	statusUpdater CompleteStatusUpdater) error {
+
+	if err := statusUpdater(userSignup, secondaryStatus, ""); err != nil {
 		logger.Error(err, "status update failed")
 		return err
 	}
@@ -760,9 +781,17 @@ func (r *ReconcileUserSignup) wrapErrorWithStatusUpdate(logger logr.Logger, user
 }
 
 func (r *ReconcileUserSignup) updateStatusConditions(userSignup *toolchainv1alpha1.UserSignup, newConditions ...toolchainv1alpha1.Condition) error {
-	var updated bool
-	userSignup.Status.Conditions, updated = commonCondition.AddOrUpdateStatusConditions(userSignup.Status.Conditions, newConditions...)
-	if !updated {
+	return r.updateStatus(userSignup, SecondaryStatus{}, newConditions...)
+}
+
+func (r *ReconcileUserSignup) updateStatus(userSignup *toolchainv1alpha1.UserSignup, secondaryStatus SecondaryStatus, newConditions ...toolchainv1alpha1.Condition) error {
+	var conditionsUpdated, secondaryStatusUpdated bool
+	userSignup.Status.Conditions, conditionsUpdated = commonCondition.AddOrUpdateStatusConditions(userSignup.Status.Conditions, newConditions...)
+	fmt.Printf("Conditions updated: %v\n", conditionsUpdated)
+	userSignup.Status, secondaryStatusUpdated = addOrUpdateSecondaryStatus(userSignup.Status, secondaryStatus)
+	fmt.Printf("Secondary status updated: %v\n", secondaryStatusUpdated)
+	if !conditionsUpdated && !secondaryStatusUpdated {
+		fmt.Println("Nothing changed, skipping updateStatus for usersignup")
 		// Nothing changed
 		return nil
 	}
@@ -776,4 +805,16 @@ func validateEmailHash(userEmail, userEmailHash string) bool {
 	// Ignore the error, as this implementation cannot return one
 	_, _ = md5hash.Write([]byte(userEmail))
 	return hex.EncodeToString(md5hash.Sum(nil)) == userEmailHash
+}
+
+// addOrUpdateSecondaryStatus updates the status parameters that are not part of the Conditions
+func addOrUpdateSecondaryStatus(status toolchainv1alpha1.UserSignupStatus, secondaryStatus SecondaryStatus) (toolchainv1alpha1.UserSignupStatus, bool) {
+	var updated bool
+	// if secondaryStatus is empty then there is no update to the secondary status
+	fmt.Printf("Status: %v\n", status)
+	fmt.Printf("Secondary status: %v\n", secondaryStatus)
+	if updated = (SecondaryStatus{}) != secondaryStatus && status.CompliantUsername != secondaryStatus.CompliantUsername; updated {
+		status.CompliantUsername = secondaryStatus.CompliantUsername
+	}
+	return status, updated
 }
