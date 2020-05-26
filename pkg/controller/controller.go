@@ -5,6 +5,7 @@ import (
 	"github.com/codeready-toolchain/host-operator/pkg/controller/changetierrequest"
 	"github.com/codeready-toolchain/host-operator/pkg/controller/masteruserrecord"
 	"github.com/codeready-toolchain/host-operator/pkg/controller/registrationservice"
+	"github.com/codeready-toolchain/host-operator/pkg/controller/toolchainstatus"
 	"github.com/codeready-toolchain/host-operator/pkg/controller/usersignup"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -13,6 +14,7 @@ import (
 var addToManagerFuncs []func(manager.Manager, *configuration.Config) error
 
 func init() {
+	addToManagerFuncs = append(addToManagerFuncs, toolchainstatus.Add)
 	addToManagerFuncs = append(addToManagerFuncs, masteruserrecord.Add)
 	addToManagerFuncs = append(addToManagerFuncs, registrationservice.Add)
 	addToManagerFuncs = append(addToManagerFuncs, usersignup.Add)
