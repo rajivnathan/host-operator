@@ -1,3 +1,11 @@
+apiVersion: v1
+data:
+  domainAPIKey: "testDomain"
+kind: Secret
+metadata:
+  name: mailgun-secret
+type: Opaque 
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -21,6 +29,11 @@ spec:
         - host-operator
         imagePullPolicy: IfNotPresent
         env:
+        - name: MAILGUN_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: mailgun-secret
+              key: domainAPIKey
         - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:

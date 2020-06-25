@@ -17,6 +17,8 @@ const (
 
 	// RegServiceEnvPrefix will be used for registration service environment variable name prefixing.
 	RegServiceEnvPrefix = "REGISTRATION_SERVICE"
+
+	MailgunAPIKey = "MAILGUN_API_KEY"
 )
 
 // host-operator constants
@@ -73,6 +75,7 @@ func LoadConfig() *Config {
 
 func (c *Config) setConfigDefaults() {
 	c.host.SetTypeByDefaultValue(true)
+	c.host.SetDefault(MailgunAPIKey, "test")
 	c.host.SetDefault(VarDurationBeforeChangeRequestDeletion, "24h")
 	c.host.SetDefault(varNotificationDeliveryService, NotificationDeliveryServiceMock)
 	c.host.SetDefault(varDurationBeforeNotificationDeletion, "24h")
@@ -91,6 +94,10 @@ func (c *Config) GetNotificationDeliveryService() string {
 // GetDurationBeforeNotificationDeletion returns the timeout before a delivered notification will be deleted.
 func (c *Config) GetDurationBeforeNotificationDeletion() time.Duration {
 	return c.host.GetDuration(varDurationBeforeNotificationDeletion)
+}
+
+func (c *Config) GetMailgunKey() string {
+	return c.host.GetString(MailgunAPIKey)
 }
 
 // GetAllRegistrationServiceParameters returns the map with key-values pairs of parameters that have REGISTRATION_SERVICE prefix

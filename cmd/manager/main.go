@@ -194,6 +194,8 @@ func main() {
 		log.Info("Created/updated the NSTemplateTier resources")
 	}()
 
+	fmt.Printf("Mailgun API Key: %s", crtConfig.GetMailgunKey())
+
 	// Start the Cmd
 	if err := mgr.Start(stopChannel); err != nil {
 		log.Error(err, "Manager exited non-zero")
