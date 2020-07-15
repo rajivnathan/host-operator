@@ -41,7 +41,7 @@ replace (
 
 replace (
 	github.com/codeready-toolchain/api => github.com/rajivnathan/api v0.0.0-20200714193119-b97434990434
-	github.com/codeready-toolchain/toolchain-common => github.com/rajivnathan/toolchain-common v0.0.0-20200714193302-5e6099c72da5
+	github.com/codeready-toolchain/toolchain-common => /Users/rajiv/go/src/github.com/codeready-toolchain/toolchain-common
 )
 
 go 1.13
