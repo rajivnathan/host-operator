@@ -169,7 +169,7 @@ func (r *ReconcileToolchainStatus) aggregateAndUpdateStatus(reqLogger logr.Logge
 	for _, handler := range statusHandlers {
 		err := handler.handleStatus(reqLogger, toolchainStatus)
 		if err != nil {
-			reqLogger.Error(err, "status update problem")
+			reqLogger.Error(err, "a status problem exists")
 			unreadyComponents = append(unreadyComponents, string(handler.name))
 		}
 	}
@@ -202,12 +202,13 @@ func (r *ReconcileToolchainStatus) hostOperatorHandleStatus(reqLogger logr.Logge
 	operatorStatus.DeploymentName = hostOperatorDeploymentName
 
 	// check host operator deployment status
-	deploymentConditions, err := status.GetDeploymentStatusConditions(r.client, hostOperatorDeploymentName, toolchainStatus.Namespace)
+	deploymentConditions := status.GetDeploymentStatusConditions(r.client, hostOperatorDeploymentName, toolchainStatus.Namespace)
 
 	// update toolchainStatus
 	operatorStatus.Conditions = deploymentConditions
 	toolchainStatus.Status.HostOperator = operatorStatus
-	return err
+
+	return status.ValidateDeploymentConditions(deploymentConditions)
 }
 
 // registrationServiceHandleStatus retrieves the Deployment for the registration service and adds its status to ToolchainStatus. It returns an error
@@ -372,10 +373,10 @@ func (s regServiceSubstatusHandler) addRegistrationServiceResourceStatus(reqLogg
 
 // addRegistrationServiceDeploymentStatus handles the RegistrationService.Deployment part of the toolchainstatus
 func (s regServiceSubstatusHandler) addRegistrationServiceDeploymentStatus(reqLogger logr.Logger, toolchainStatus *toolchainv1alpha1.ToolchainStatus) error {
-	deploymentConditions, err := status.GetDeploymentStatusConditions(s.controllerClient, registrationservice.ResourceName, toolchainStatus.Namespace)
+	deploymentConditions := status.GetDeploymentStatusConditions(s.controllerClient, registrationservice.ResourceName, toolchainStatus.Namespace)
 	toolchainStatus.Status.RegistrationService.Deployment.Name = registrationservice.ResourceName
 	toolchainStatus.Status.RegistrationService.Deployment.Conditions = deploymentConditions
-	if err != nil {
+	if err := status.ValidateDeploymentConditions(deploymentConditions); err != nil {
 		err = errs.Wrap(err, "a problem was detected in the deployment status")
 		return err
 	}
