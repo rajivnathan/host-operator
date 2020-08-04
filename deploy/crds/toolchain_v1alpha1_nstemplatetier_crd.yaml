@@ -65,6 +65,16 @@ spec:
                 type: object
               type: array
               x-kubernetes-list-type: atomic
+            tierConfigResources:
+              description: the tier configuration resources template (for deactivation,
+                etc.)
+              properties:
+                deactivation:
+                  description: Deactivation The duration that defines the resource
+                  type: string
+              required:
+              - deactivation
+              type: object
           required:
           - namespaces
           type: object

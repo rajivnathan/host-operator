@@ -1,6 +1,1 @@
-apiVersion: toolchain.dev.openshift.com/v1alpha1
-kind: Deactivation
-metadata:
-  name: basic-deactivation
-spec:
-  length: "10m" # 10 minutes
+deactivation: "10m" # 10 minutes

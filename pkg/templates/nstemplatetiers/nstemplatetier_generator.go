@@ -64,7 +64,7 @@ func CreateOrUpdateResources(s *runtime.Scheme, client client.Client, namespace 
 type templates struct {
 	namespaceTemplates map[string]template // namespace templates (including roles, etc.) indexed by type ("dev", "code", "stage")
 	clusterTemplate    *template           // other cluster-scoped resources, in a single template file
-	tierConfigTemplate *template           // tier configuration resources, in a single template file
+	// tierConfigTemplate *template           // tier configuration resources, in a single template file
 }
 
 // template: a template content and its latest git revision
@@ -136,7 +136,8 @@ func loadTemplatesByTiers(assets assets.Assets) (map[string]*templates, error) {
 		case filename == "cluster.yaml":
 			results[tier].clusterTemplate = &tmpl
 		case filename == "tier_config.yaml":
-			results[tier].tierConfigTemplate = &tmpl
+		// 	results[tier].tierConfigTemplate = &tmpl
+		// TODO
 		default:
 			return nil, errors.Errorf("unable to load templates: unknown scope for file '%s'", name)
 		}
@@ -186,13 +187,13 @@ func newTierTemplates(s *runtime.Scheme, namespace string, assets assets.Assets)
 			result[tierTmpl.Spec.TierName] = append(result[tierTmpl.Spec.TierName], tierTmpl)
 		}
 		// tier config resource templates
-		if tmpls.tierConfigTemplate != nil {
-			tierTmpl, err := newTierTemplate(decoder, namespace, tier, toolchainv1alpha1.TierConfigResourcesTemplateType, *tmpls.tierConfigTemplate)
-			if err != nil {
-				return nil, err
-			}
-			result[tierTmpl.Spec.TierName] = append(result[tierTmpl.Spec.TierName], tierTmpl)
-		}
+		// if tmpls.tierConfigTemplate != nil {
+		// 	tierTmpl, err := newTierTemplate(decoder, namespace, tier, toolchainv1alpha1.TierConfigResourcesTemplateType, *tmpls.tierConfigTemplate)
+		// 	if err != nil {
+		// 		return nil, err
+		// 	}
+		// 	result[tierTmpl.Spec.TierName] = append(result[tierTmpl.Spec.TierName], tierTmpl)
+		// }
 	}
 	return result, nil
 }
@@ -280,10 +281,10 @@ func newNSTemplateTier(namespace, tier string, tierTmpls []*toolchainv1alpha1.Ti
 			result.Spec.ClusterResources = &toolchainv1alpha1.NSTemplateTierClusterResources{
 				TemplateRef: tierTmpl.Name,
 			}
-		case toolchainv1alpha1.TierConfigResourcesTemplateType:
-			result.Spec.TierConfigResources = &toolchainv1alpha1.NSTemplateTierConfigResources{
-				TemplateRef: tierTmpl.Name,
-			}
+		// case toolchainv1alpha1.TierConfigResourcesTemplateType:
+		// 	result.Spec.TierConfigResources = &toolchainv1alpha1.NSTemplateTierConfigResources{
+		// 		TemplateRef: tierTmpl.Name,
+		// 	}
 		default:
 			// add it to the NSTemplateTier obj
 			result.Spec.Namespaces = append(result.Spec.Namespaces, toolchainv1alpha1.NSTemplateTierNamespace{

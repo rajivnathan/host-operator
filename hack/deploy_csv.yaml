@@ -190,6 +190,110 @@ data:
         annotations:
           controller-gen.kubebuilder.io/version: (devel)
         creationTimestamp: null
+        name: deactivations.toolchain.dev.openshift.com
+      spec:
+        additionalPrinterColumns:
+        - JSONPath: .spec.length
+          name: Length
+          type: string
+        - JSONPath: .status.conditions[?(@.type=="Ready")].status
+          name: Ready
+          type: string
+        - JSONPath: .status.conditions[?(@.type=="Ready")].reason
+          name: Reason
+          type: string
+        group: toolchain.dev.openshift.com
+        names:
+          kind: Deactivation
+          listKind: DeactivationList
+          plural: deactivations
+          shortNames:
+          - subs
+          singular: deactivation
+        scope: Namespaced
+        subresources:
+          status: {}
+        validation:
+          openAPIV3Schema:
+            description: Deactivation defines a deactivation group that user signups can
+              be associated with
+            properties:
+              apiVersion:
+                description: 'APIVersion defines the versioned schema of this representation
+                  of an object. Servers should convert recognized schemas to the latest
+                  internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+                type: string
+              kind:
+                description: 'Kind is a string value representing the REST resource this
+                  object represents. Servers may infer this from the endpoint the client
+                  submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                type: string
+              metadata:
+                type: object
+              spec:
+                description: DeactivationSpec defines the desired state of Deactivation
+                properties:
+                  length:
+                    description: The length of time before the deactivation expires
+                    type: string
+                type: object
+              status:
+                description: DeactivationStatus defines the observed state of Deactivation
+                properties:
+                  conditions:
+                    description: 'Conditions is an array of current Deactivation conditions
+                      Supported condition reasons: Deploying, and Deployed'
+                    items:
+                      properties:
+                        lastTransitionTime:
+                          description: Last time the condition transit from one status to
+                            another.
+                          format: date-time
+                          type: string
+                        lastUpdatedTime:
+                          description: Last time the condition was updated
+                          format: date-time
+                          type: string
+                        message:
+                          description: Human readable message indicating details about last
+                            transition.
+                          type: string
+                        reason:
+                          description: (brief) reason for the condition's last transition.
+                          type: string
+                        status:
+                          description: Status of the condition, one of True, False, Unknown.
+                          type: string
+                        type:
+                          description: Type of condition
+                          type: string
+                      required:
+                      - status
+                      - type
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - type
+                    x-kubernetes-list-type: map
+                type: object
+            x-kubernetes-preserve-unknown-fields: true
+        version: v1alpha1
+        versions:
+        - name: v1alpha1
+          served: true
+          storage: true
+      status:
+        acceptedNames:
+          kind: ""
+          plural: ""
+        conditions: []
+        storedVersions: []
+    - apiVersion: apiextensions.k8s.io/v1beta1
+      kind: CustomResourceDefinition
+      metadata:
+        annotations:
+          controller-gen.kubebuilder.io/version: (devel)
+        creationTimestamp: null
         name: masteruserrecords.toolchain.dev.openshift.com
       spec:
         additionalPrinterColumns:
@@ -381,6 +485,10 @@ data:
                     x-kubernetes-list-map-keys:
                     - type
                     x-kubernetes-list-type: map
+                  provisionedTime:
+                    description: The timestamp when the user was provisioned
+                    format: date-time
+                    type: string
                   userAccounts:
                     description: The status of user accounts in the member clusters which
                       belong to this MasterUserRecord
@@ -645,6 +753,16 @@ data:
                       type: object
                     type: array
                     x-kubernetes-list-type: atomic
+                  tierConfigResources:
+                    description: the tier configuration resources template (for deactivation,
+                      etc.)
+                    properties:
+                      deactivation:
+                        description: Deactivation The duration that defines the resource
+                        type: string
+                    required:
+                    - deactivation
+                    type: object
                 required:
                 - namespaces
                 type: object
@@ -1133,7 +1251,7 @@ data:
                     type: string
                   type:
                     description: 'The type of the template. For example: "code", "dev",
-                      "stage" or "cluster"'
+                      "stage", "clusterresources" or "tierresources"'
                     type: string
                 required:
                 - revision
@@ -2194,6 +2312,16 @@ data:
                   "targetCluster": "east-2a",
                   "username": "johnsmith@redhat.com"
                 }
+              },
+              {
+                "apiVersion": "toolchain.dev.openshift.com/v1alpha1",
+                "kind": "Deactivation",
+                "metadata": {
+                  "name": "basic-deactivation"
+                },
+                "spec": {
+                  "length": "10m"
+                }
               }
             ]
           capabilities: Basic Install
@@ -2213,6 +2341,12 @@ data:
             displayName: Change Tier Request
             kind: ChangeTierRequest
             name: changetierrequests.toolchain.dev.openshift.com
+            version: v1alpha1
+          - description: Deactivation defines a deactivation group that user signups can
+              be associated with
+            displayName: Deactivation
+            kind: Deactivation
+            name: deactivations.toolchain.dev.openshift.com
             version: v1alpha1
           - description: MasterUserRecord keeps all information about user, user accounts
               and namespaces provisioned in CodeReady Toolchain

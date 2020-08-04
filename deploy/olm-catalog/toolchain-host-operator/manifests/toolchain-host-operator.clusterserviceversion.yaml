@@ -204,6 +204,16 @@ metadata:
             "targetCluster": "east-2a",
             "username": "johnsmith@redhat.com"
           }
+        },
+        {
+          "apiVersion": "toolchain.dev.openshift.com/v1alpha1",
+          "kind": "Deactivation",
+          "metadata": {
+            "name": "basic-deactivation"
+          },
+          "spec": {
+            "length": "10m"
+          }
         }
       ]
     capabilities: Basic Install
@@ -223,6 +233,12 @@ spec:
       displayName: Change Tier Request
       kind: ChangeTierRequest
       name: changetierrequests.toolchain.dev.openshift.com
+      version: v1alpha1
+    - description: Deactivation defines a deactivation group that user signups can
+        be associated with
+      displayName: Deactivation
+      kind: Deactivation
+      name: deactivations.toolchain.dev.openshift.com
       version: v1alpha1
     - description: MasterUserRecord keeps all information about user, user accounts
         and namespaces provisioned in CodeReady Toolchain
