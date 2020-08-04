@@ -232,6 +232,7 @@ func (s *Synchronizer) alignReadiness() (bool, error) {
 	}
 
 	s.record.Status.Conditions, _ = condition.AddOrUpdateStatusConditions(s.record.Status.Conditions, toBeProvisioned())
+	s.record.Status.ProvisionedTime = &v1.Time{Time: time.Now()}
 	if condition.IsNotTrue(s.record.Status.Conditions, toolchainv1alpha1.MasterUserRecordUserProvisionedNotificationCreated) {
 		notification := &toolchainv1alpha1.Notification{
 			ObjectMeta: v1.ObjectMeta{
