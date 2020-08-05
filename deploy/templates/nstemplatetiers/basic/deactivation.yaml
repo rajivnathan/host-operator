@@ -1,0 +1,11 @@
+apiVersion: toolchain.dev.openshift.com/v1alpha1
+kind: Deactivation
+metadata:
+  name: basic
+spec:
+  timeoutSeconds: 28800 # 8 hours
+  tierName: basic
+  deactivationDomainsExcluded:
+  - name: "@redhat.com"
+  - name: "foo@ibm.com"
+  
