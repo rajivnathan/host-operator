@@ -330,10 +330,8 @@ func TestSyncMurStatusWithUserAccountStatusWhenCompleted(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
-<<<<<<< HEAD
 		require.True(t, preSyncTime.Time.Before(sync.record.Status.ProvisionedTime.Time), "the timestamp just before syncing should be before the ProvisionedTime")
 		verifySyncMurStatusWithUserAccountStatus(t, memberClient, hostClient, userAccount, mur, toBeProvisioned(), toBeProvisionedNotificationCreated())
-=======
 		expectedProvisionedTime := metav1.Now()
 		verifySyncMurStatusWithUserAccountStatus(t, memberClient, hostClient, userAccount, mur, expectedProvisionedTime, toBeProvisioned(), toBeProvisionedNotificationCreated())
 	})
@@ -358,7 +356,6 @@ func TestSyncMurStatusWithUserAccountStatusWhenCompleted(t *testing.T) {
 		require.NoError(t, err1)
 		require.NoError(t, err2)
 		require.True(t, initialProvisionedTime.Time.Equal(sync.record.Status.ProvisionedTime.Time)) // timestamp should be the same
->>>>>>> ff106c5... Set ProvisionedTime in MUR status
 	})
 
 	t.Run("ProvisionedTime should not be updated when synced more than once", func(t *testing.T) {
