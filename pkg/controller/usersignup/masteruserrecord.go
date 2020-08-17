@@ -1,8 +1,12 @@
 package usersignup
 
 import (
+	"strconv"
+
 	toolchainv1alpha1 "github.com/codeready-toolchain/api/pkg/apis/toolchain/v1alpha1"
 	"github.com/codeready-toolchain/host-operator/pkg/controller/nstemplatetier"
+	commonCondition "github.com/codeready-toolchain/toolchain-common/pkg/condition"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -94,4 +98,21 @@ func NewNSTemplateSetSpec(nstemplateTier *toolchainv1alpha1.NSTemplateTier) tool
 		Namespaces:       namespaces,
 		ClusterResources: clusterResources,
 	}
+}
+
+// ensureProvisionedTimeLabel ensures a provisioned time label exists if the MUR is provisioned and returns true if the mur was modified or false otherwise
+func ensureProvisionedTimeLabel(mur *toolchainv1alpha1.MasterUserRecord) bool {
+	if commonCondition.HasConditionReason(mur.Status.Conditions, toolchainv1alpha1.MasterUserRecordReady, toolchainv1alpha1.MasterUserRecordProvisionedReason) {
+		provisionedTime := mur.Status.ProvisionedTime
+		if mur.Labels == nil {
+			mur.Labels = map[string]string{}
+			mur.Labels[toolchainv1alpha1.MasterUserRecordProvisionedTimeUNIXLabelKey] = strconv.FormatInt(provisionedTime.Unix(), 10)
+			return true
+		}
+		if _, ok := mur.Labels[toolchainv1alpha1.MasterUserRecordProvisionedTimeUNIXLabelKey]; !ok {
+			mur.Labels[toolchainv1alpha1.MasterUserRecordProvisionedTimeUNIXLabelKey] = strconv.FormatInt(provisionedTime.Unix(), 10)
+			return true
+		}
+	}
+	return false
 }

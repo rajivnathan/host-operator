@@ -275,5 +275,6 @@ func newNSTemplateTier(namespace, tier string, tierTmpls []*toolchainv1alpha1.Ti
 			})
 		}
 	}
+	// result.Spec.
 	return result
 }

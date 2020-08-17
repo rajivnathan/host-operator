@@ -258,6 +258,8 @@ func (r *ReconcileUserSignup) Reconcile(request reconcile.Request) (reconcile.Re
 		return reconcile.Result{}, r.updateStatus(reqLogger, instance, r.setStatusInvalidMissingUserEmailAnnotation)
 	}
 
+	fmt.Println("rajiv: listing MURs")
+
 	// List all MasterUserRecord resources that have a UserID label equal to the UserSignup.Name
 	labels := map[string]string{toolchainv1alpha1.MasterUserRecordUserIDLabelKey: instance.Name}
 	opts := client.MatchingLabels(labels)
@@ -275,11 +277,12 @@ func (r *ReconcileUserSignup) Reconcile(request reconcile.Request) (reconcile.Re
 	murs := murList.Items
 	// If we found more than one MasterUserRecord, then die
 	if len(murs) > 1 {
+		fmt.Println("rajiv: More than 1 MUR found")
 		err = NewSignupError("multiple matching MasterUserRecord resources found")
 		return reconcile.Result{}, r.wrapErrorWithStatusUpdate(reqLogger, instance, r.setStatusInvalidMURState, err, "Multiple MasterUserRecords found")
 	} else if len(murs) == 1 {
 		mur := murs[0]
-
+		fmt.Println("rajiv: Found MUR")
 		// If the user has been banned, then we need to delete the MUR
 		if banned {
 			return r.DeleteMasterUserRecord(&mur, instance, reqLogger, r.setStatusBanning, r.setStatusFailedToDeleteMUR)
@@ -290,17 +293,24 @@ func (r *ReconcileUserSignup) Reconcile(request reconcile.Request) (reconcile.Re
 			return r.DeleteMasterUserRecord(&mur, instance, reqLogger, r.setStatusDeactivating, r.setStatusFailedToDeleteMUR)
 		}
 
+		// If the MasterUserRecord is provisioned then add a provisionedTime label
+		fmt.Println("rajiv: Add provisionedTime Label")
+		murChanged := ensureProvisionedTimeLabel(&mur)
+
 		// check if anything in the MUR chould be migrated/fixed
-		if changed, err := migrateOrFixMurIfNecessary(&mur, nstemplateTier); err != nil {
+		if changedDueToMigration, err := migrateOrFixMurIfNecessary(&mur, nstemplateTier); err != nil {
+			fmt.Println("rajiv: Migrate or fix MUR")
 			return reconcile.Result{}, r.wrapErrorWithStatusUpdate(reqLogger, instance, r.setStatusInvalidMURState, err, "unable to migrate or fix existing MasterUserRecord")
 
-		} else if changed {
+		} else if murChanged || changedDueToMigration {
+			fmt.Println("rajiv: MUR changed, proceed to update")
 			if err := r.client.Update(context.TODO(), &mur); err != nil {
 				return reconcile.Result{}, r.wrapErrorWithStatusUpdate(reqLogger, instance, r.setStatusInvalidMURState, err, "unable to migrate or fix existing MasterUserRecord")
 			}
 			return reconcile.Result{}, nil
 		}
 
+		fmt.Println("rajiv: Setting status to Complete")
 		// If we successfully found an existing MasterUserRecord then our work here is done, set the status
 		// conditions to complete and set the compliant username and return
 		reqLogger.Info("MasterUserRecord exists, setting UserSignup status to 'Complete'")
