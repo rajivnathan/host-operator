@@ -237,6 +237,7 @@ func (s *Synchronizer) alignReadiness() (bool, error) {
 	// the MUR status can change from provisioned to something else and back to provisioned but the time should only be set the first time.
 	if s.record.Status.ProvisionedTime == nil {
 		currentTime := time.Now()
+		fmt.Printf("ProvisionedTime: %d\n", currentTime.Unix())
 		s.record.Status.ProvisionedTime = &v1.Time{Time: currentTime}
 	}
 
