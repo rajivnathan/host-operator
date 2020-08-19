@@ -290,11 +290,13 @@ func (r *ReconcileUserSignup) Reconcile(request reconcile.Request) (reconcile.Re
 			return r.DeleteMasterUserRecord(&mur, instance, reqLogger, r.setStatusDeactivating, r.setStatusFailedToDeleteMUR)
 		}
 
-		// check if anything in the MUR chould be migrated/fixed
-		if changed, err := migrateOrFixMurIfNecessary(&mur, nstemplateTier); err != nil {
-			return reconcile.Result{}, r.wrapErrorWithStatusUpdate(reqLogger, instance, r.setStatusInvalidMURState, err, "unable to migrate or fix existing MasterUserRecord")
+		// If the MasterUserRecord is provisioned then add a provisionedTime label
+		murChanged := ensureProvisionedTimeLabel(&mur)
 
-		} else if changed {
+		// check if anything in the MUR chould be migrated/fixed
+		if changedDueToMigration, err := migrateOrFixMurIfNecessary(&mur, nstemplateTier); err != nil {
+			return reconcile.Result{}, r.wrapErrorWithStatusUpdate(reqLogger, instance, r.setStatusInvalidMURState, err, "unable to migrate or fix existing MasterUserRecord")
+		} else if murChanged || changedDueToMigration {
 			if err := r.client.Update(context.TODO(), &mur); err != nil {
 				return reconcile.Result{}, r.wrapErrorWithStatusUpdate(reqLogger, instance, r.setStatusInvalidMURState, err, "unable to migrate or fix existing MasterUserRecord")
 			}

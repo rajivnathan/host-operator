@@ -13,6 +13,7 @@ import (
 	"github.com/codeready-toolchain/host-operator/pkg/apis"
 	"github.com/codeready-toolchain/host-operator/pkg/configuration"
 	"github.com/codeready-toolchain/host-operator/pkg/controller"
+	"github.com/codeready-toolchain/host-operator/pkg/controller/deactivation"
 	"github.com/codeready-toolchain/host-operator/pkg/controller/registrationservice"
 	"github.com/codeready-toolchain/host-operator/pkg/controller/toolchainstatus"
 	"github.com/codeready-toolchain/host-operator/pkg/templates/assets"
@@ -156,8 +157,11 @@ func main() {
 			os.Exit(1)
 		}
 
-		log.Info("Starting ToolchainCluster health checks.")
+		log.Info("Starting ToolchainCluster health checks")
 		toolchaincluster.StartHealthChecks(mgr, namespace, stopChannel, 10*time.Second)
+
+		log.Info("Starting deactivator")
+		deactivation.StartDeactivator(mgr, namespace, stopChannel, 20*time.Second)
 
 		// create or update Toolchain status during the operator deployment
 		log.Info("Creating/updating the ToolchainStatus resource")
@@ -186,7 +190,7 @@ func main() {
 		log.Info("Created/updated the NSTemplateTier resources")
 	}()
 
-	log.Info("Starting the Cmd.")
+	log.Info("Starting the Cmd")
 
 	// Start the Cmd
 	if err := mgr.Start(stopChannel); err != nil {
