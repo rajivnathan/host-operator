@@ -18,6 +18,8 @@ import (
 	clientlib "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+
+	v1 "k8s.io/api/core/v1"
 )
 
 var log = logf.Log.WithName("deactivator")
@@ -86,7 +88,19 @@ func (d deactivator) deactivateExpiredMursForTier(tier toolchainv1alpha1.NSTempl
 	// timeoutDuration := time.Duration(timeoutDays*24) * time.Hour
 
 	// TODO remove temporary hard-coded timeout duration value
-	timeoutDuration := 60 * time.Second
+	timeoutDuration := 60 * time.Minute
+	trigger := &v1.ConfigMap{}
+	err := d.client.Get(context.TODO(), types.NamespacedName{
+		Namespace: d.namespace,
+		Name:      "start-user-deactivation",
+	}, trigger)
+
+	if err != nil {
+		log.Error(err, "unable to get configmap to trigger user deactivation")
+	} else {
+		timeoutDuration = 60 * time.Second
+	}
+
 	expiry := fmt.Sprintf("%d", time.Now().Add(-timeoutDuration).Unix())
 
 	log.Info("masteruserrecord label selector", "expiry", expiry)
