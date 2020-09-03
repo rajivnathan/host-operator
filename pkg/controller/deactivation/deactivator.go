@@ -97,8 +97,10 @@ func (d deactivator) deactivateExpiredMursForTier(tier toolchainv1alpha1.NSTempl
 
 	if err != nil {
 		log.Error(err, "unable to get configmap to trigger user deactivation")
+		return
 	} else {
-		timeoutDuration = 60 * time.Second
+		log.Info("triggered user deactivation")
+		timeoutDuration = 1 * time.Second
 	}
 
 	expiry := fmt.Sprintf("%d", time.Now().Add(-timeoutDuration).Unix())
@@ -111,7 +113,7 @@ func (d deactivator) deactivateExpiredMursForTier(tier toolchainv1alpha1.NSTempl
 	murs := toolchainv1alpha1.MasterUserRecordList{}
 	if err = d.client.List(context.Background(), &murs,
 		clientlib.InNamespace(d.namespace),
-		clientlib.Limit(5),
+		// clientlib.Limit(5),
 		matchingLabels,
 	); err != nil {
 		d.logger.Error(err, "unable to list masteruserrecords")

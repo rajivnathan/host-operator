@@ -161,7 +161,7 @@ func main() {
 		toolchaincluster.StartHealthChecks(mgr, namespace, stopChannel, 10*time.Second)
 
 		log.Info("Starting deactivator")
-		deactivation.StartDeactivator(mgr, namespace, stopChannel, 20*time.Second)
+		deactivation.StartDeactivator(mgr, namespace, stopChannel, 10*time.Second)
 
 		// create or update Toolchain status during the operator deployment
 		log.Info("Creating/updating the ToolchainStatus resource")
