@@ -10,6 +10,7 @@ import (
 	"github.com/codeready-toolchain/host-operator/pkg/configuration"
 	coputil "github.com/redhat-cop/operator-utils/pkg/util"
 
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -75,9 +76,23 @@ func (r *ReconcileDeactivation) Reconcile(request reconcile.Request) (reconcile.
 	logger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	logger.Info("Reconciling Deactivation")
 
+	trigger := &v1.ConfigMap{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{
+		Namespace: request.Namespace,
+		Name:      "start-user-deactivation",
+	}, trigger)
+
+	if err == nil {
+		log.Info("requeue for a long time")
+		// just requeue for a long time
+		requeueForALongTime := 24 * time.Hour
+		return reconcile.Result{RequeueAfter: requeueForALongTime}, nil
+	}
+	log.Info("triggered user deactivation")
+
 	// Fetch the MasterUserRecord instance
 	mur := &toolchainv1alpha1.MasterUserRecord{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, mur)
+	err = r.client.Get(context.TODO(), request.NamespacedName, mur)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -125,7 +140,7 @@ func (r *ReconcileDeactivation) Reconcile(request reconcile.Request) (reconcile.
 	provisionedTimestamp := *mur.Status.ProvisionedTime
 	// timeoutDays := nsTemplateTier.Spec.DeactivationTimeoutDays
 	// timeoutDuration, err := time.ParseDuration(strconv.Itoa(timeoutDays) + "d")
-	timeoutDuration := 30 * time.Second
+	timeoutDuration := 1 * time.Second
 	// if err != nil {
 	// 	// invalid deactivation timeout
 	// 	logger.Error(err, "tier %s has an invalid deactivation timeout", account.Spec.NSTemplateSet.TierName)
