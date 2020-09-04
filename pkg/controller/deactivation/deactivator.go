@@ -24,6 +24,7 @@ import (
 
 var log = logf.Log.WithName("deactivator")
 
+// StartDeactivator starts the deactivator routine that will run periodically
 func StartDeactivator(mgr manager.Manager, namespace string, stopChan <-chan struct{}, period time.Duration) {
 	log.Info("starting deactivator", "period", period)
 	go wait.Until(func() {
@@ -59,7 +60,7 @@ func (d deactivator) checkUserRecordsForDeactivation() {
 		return
 	}
 
-	// find MURs that should be deactivated for each tier
+	// get each tier and deactive expired MURs
 	for _, nsTemplateTier := range tiers.Items {
 		tier := toolchainv1alpha1.NSTemplateTier{}
 		if err := d.client.Get(context.TODO(), types.NamespacedName{
@@ -71,24 +72,20 @@ func (d deactivator) checkUserRecordsForDeactivation() {
 		}
 
 		d.deactivateExpiredMursForTier(tier)
-	} // end tiers loop
+	}
 }
 
 func (d deactivator) deactivateExpiredMursForTier(tier toolchainv1alpha1.NSTemplateTier) {
-	// if tier.Spec.DeactivationTimeoutDays == nil || len(*tier.Spec.DeactivationTimeoutDays) == 0 {
-	// 	continue
-	// }
-
 	// // timeoutDuration, err := time.ParseDuration(*tier.Spec.DeactivationTimeoutDays)
 	// timeoutDays, err := strconv.ParseInt(*tier.Spec.DeactivationTimeoutDays, 10, 64)
 	// if err != nil {
 	// 	return errs.Wrapf(err, "tier %s deactivation timeout value is invalid")
 	// }
 
-	// timeoutDuration := time.Duration(timeoutDays*24) * time.Hour
-
 	// TODO remove temporary hard-coded timeout duration value
 	timeoutDuration := 60 * time.Minute
+
+	// TODO remove temporary trigger for performance tests
 	trigger := &v1.ConfigMap{}
 	err := d.client.Get(context.TODO(), types.NamespacedName{
 		Namespace: d.namespace,
@@ -132,7 +129,7 @@ func (d deactivator) deactivateExpiredMursForTier(tier toolchainv1alpha1.NSTempl
 
 		log.Info("deactivating usersignup for mur", "name", mur.Name, "tier", mur.Spec.UserAccounts[0].Spec.NSTemplateSet.TierName)
 
-		// trigger deactivation on the user signup
+		// trigger deactivation of the user signup
 		usersignup.Spec.Deactivated = true
 		d.client.Update(context.TODO(), usersignup)
 
