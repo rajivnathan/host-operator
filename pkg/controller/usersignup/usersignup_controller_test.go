@@ -59,9 +59,9 @@ var basicNSTemplateTier = newNsTemplateTier("basic", "code", "dev", "stage")
 
 func TestUserSignupCreateMUROk(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
-	defer metrics.Reset()
 	userSignup := NewUserSignup(Approved(), WithTargetCluster("east"))
 	userSignup.Labels[v1alpha1.UserSignupStateLabelKey] = "not-ready"
 	r, req, _ := prepareReconcile(t, userSignup.Name, NewGetMemberClusters(), userSignup, basicNSTemplateTier)
@@ -98,11 +98,14 @@ func TestUserSignupCreateMUROk(t *testing.T) {
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: userSignup.Name, Namespace: req.Namespace}, userSignup)
 	require.NoError(t, err)
 	assert.Equal(t, "approved", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupUniqueTotal) // zero because we started with a not-ready state instead of empty as per usual
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupProvisionedTotal)
 	AssertThatCounterHas(t, 2)
 }
 
 func TestUserSignupWithAutoApprovalWithoutTargetCluster(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup()
@@ -121,6 +124,11 @@ func TestUserSignupWithAutoApprovalWithoutTargetCluster(t *testing.T) {
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: userSignup.Name, Namespace: req.Namespace}, userSignup)
 	require.NoError(t, err)
 	assert.Equal(t, "approved", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupAutoDeactivatedTotal)
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupBannedTotal)
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupDeactivatedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 
 	murs := &v1alpha1.MasterUserRecordList{}
 	err = r.client.List(context.TODO(), murs)
@@ -196,10 +204,16 @@ func TestUserSignupWithAutoApprovalWithoutTargetCluster(t *testing.T) {
 			})
 	})
 	AssertThatCounterHas(t, 2)
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupAutoDeactivatedTotal)
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupBannedTotal)
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupDeactivatedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 }
 
 func TestUserSignupWithMissingEmailLabelFails(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup()
@@ -218,6 +232,8 @@ func TestUserSignupWithMissingEmailLabelFails(t *testing.T) {
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: userSignup.Name, Namespace: req.Namespace}, userSignup)
 	require.NoError(t, err)
 	assert.Equal(t, "not-ready", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 	test.AssertConditionsMatch(t, userSignup.Status.Conditions,
 		v1alpha1.Condition{
 			Type:    v1alpha1.UserSignupComplete,
@@ -230,6 +246,7 @@ func TestUserSignupWithMissingEmailLabelFails(t *testing.T) {
 
 func TestUserSignupWithInvalidEmailHashLabelFails(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup()
@@ -254,6 +271,8 @@ func TestUserSignupWithInvalidEmailHashLabelFails(t *testing.T) {
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: userSignup.Name, Namespace: req.Namespace}, userSignup)
 	require.NoError(t, err)
 	assert.Equal(t, "not-ready", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 	test.AssertConditionsMatch(t, userSignup.Status.Conditions,
 		v1alpha1.Condition{
 			Type:    v1alpha1.UserSignupComplete,
@@ -266,6 +285,7 @@ func TestUserSignupWithInvalidEmailHashLabelFails(t *testing.T) {
 
 func TestUpdateOfApprovedLabelFails(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup()
@@ -293,10 +313,13 @@ func TestUpdateOfApprovedLabelFails(t *testing.T) {
 			Message: "some error",
 		})
 	AssertThatCounterHas(t, 1)
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupUniqueTotal)
 }
 
 func TestUserSignupWithMissingEmailHashLabelFails(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup()
@@ -318,6 +341,8 @@ func TestUserSignupWithMissingEmailHashLabelFails(t *testing.T) {
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: userSignup.Name, Namespace: req.Namespace}, userSignup)
 	require.NoError(t, err)
 	assert.Equal(t, "not-ready", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 	test.AssertConditionsMatch(t, userSignup.Status.Conditions,
 		v1alpha1.Condition{
 			Type:    v1alpha1.UserSignupComplete,
@@ -330,6 +355,7 @@ func TestUserSignupWithMissingEmailHashLabelFails(t *testing.T) {
 
 func TestUserSignupFailedMissingNSTemplateTier(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup()
@@ -363,11 +389,14 @@ func TestUserSignupFailedMissingNSTemplateTier(t *testing.T) {
 			Reason: "UserIsActive",
 		})
 	assert.Equal(t, "approved", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 	AssertThatCounterHas(t, 1)
 }
 
 func TestUserSignupFailedNoClusterReady(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 2)
 	defer counter.Reset()
 	userSignup := NewUserSignup()
@@ -408,12 +437,15 @@ func TestUserSignupFailedNoClusterReady(t *testing.T) {
 		})
 
 	assert.Equal(t, "pending", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 
 	AssertThatCounterHas(t, 2)
 }
 
 func TestUserSignupFailedNoClusterWithCapacityAvailable(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup()
@@ -453,12 +485,15 @@ func TestUserSignupFailedNoClusterWithCapacityAvailable(t *testing.T) {
 		})
 
 	assert.Equal(t, "pending", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 
 	AssertThatCounterHas(t, 1)
 }
 
 func TestUserSignupWithManualApprovalApproved(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup(Approved())
@@ -477,6 +512,8 @@ func TestUserSignupWithManualApprovalApproved(t *testing.T) {
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: userSignup.Name, Namespace: req.Namespace}, userSignup)
 	require.NoError(t, err)
 	assert.Equal(t, "approved", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 
 	murs := &v1alpha1.MasterUserRecordList{}
 	err = r.client.List(context.TODO(), murs)
@@ -515,6 +552,8 @@ func TestUserSignupWithManualApprovalApproved(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, userSignup.Status.CompliantUsername, mur.Name)
 		assert.Equal(t, "approved", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+		AssertMetricsCounterEquals(t, 1, metrics.UserSignupProvisionedTotal)
+		AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 		test.AssertConditionsMatch(t, userSignup.Status.Conditions,
 			v1alpha1.Condition{
 				Type:   v1alpha1.UserSignupApproved,
@@ -536,6 +575,7 @@ func TestUserSignupWithManualApprovalApproved(t *testing.T) {
 
 func TestUserSignupWithNoApprovalPolicyTreatedAsManualApproved(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup(Approved())
@@ -554,6 +594,8 @@ func TestUserSignupWithNoApprovalPolicyTreatedAsManualApproved(t *testing.T) {
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: userSignup.Name, Namespace: req.Namespace}, userSignup)
 	require.NoError(t, err)
 	assert.Equal(t, "approved", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 
 	murs := &v1alpha1.MasterUserRecordList{}
 	err = r.client.List(context.TODO(), murs)
@@ -593,6 +635,8 @@ func TestUserSignupWithNoApprovalPolicyTreatedAsManualApproved(t *testing.T) {
 		require.Equal(t, userSignup.Status.CompliantUsername, mur.Name)
 
 		assert.Equal(t, "approved", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+		AssertMetricsCounterEquals(t, 1, metrics.UserSignupProvisionedTotal)
+		AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 
 		test.AssertConditionsMatch(t, userSignup.Status.Conditions,
 			v1alpha1.Condition{
@@ -615,6 +659,7 @@ func TestUserSignupWithNoApprovalPolicyTreatedAsManualApproved(t *testing.T) {
 
 func TestUserSignupWithManualApprovalNotApproved(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup()
@@ -633,6 +678,8 @@ func TestUserSignupWithManualApprovalNotApproved(t *testing.T) {
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: userSignup.Name, Namespace: req.Namespace}, userSignup)
 	require.NoError(t, err)
 	assert.Equal(t, "pending", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 
 	// There should be no MasterUserRecords
 	murs := &v1alpha1.MasterUserRecordList{}
@@ -661,6 +708,7 @@ func TestUserSignupWithManualApprovalNotApproved(t *testing.T) {
 
 func TestUserSignupWithAutoApprovalWithTargetCluster(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup(WithTargetCluster("east"))
@@ -679,6 +727,8 @@ func TestUserSignupWithAutoApprovalWithTargetCluster(t *testing.T) {
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: userSignup.Name, Namespace: req.Namespace}, userSignup)
 	require.NoError(t, err)
 	assert.Equal(t, "approved", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 
 	murs := &v1alpha1.MasterUserRecordList{}
 	err = r.client.List(context.TODO(), murs)
@@ -719,6 +769,8 @@ func TestUserSignupWithAutoApprovalWithTargetCluster(t *testing.T) {
 		require.Equal(t, userSignup.Status.CompliantUsername, mur.Name)
 
 		assert.Equal(t, "approved", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+		AssertMetricsCounterEquals(t, 1, metrics.UserSignupProvisionedTotal)
+		AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 
 		test.AssertConditionsMatch(t, userSignup.Status.Conditions,
 			v1alpha1.Condition{
@@ -741,6 +793,7 @@ func TestUserSignupWithAutoApprovalWithTargetCluster(t *testing.T) {
 
 func TestUserSignupWithMissingApprovalPolicyTreatedAsManual(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup(WithTargetCluster("east"))
@@ -758,6 +811,8 @@ func TestUserSignupWithMissingApprovalPolicyTreatedAsManual(t *testing.T) {
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: userSignup.Name, Namespace: req.Namespace}, userSignup)
 	require.NoError(t, err)
 	assert.Equal(t, "pending", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 
 	test.AssertConditionsMatch(t, userSignup.Status.Conditions,
 		v1alpha1.Condition{
@@ -780,6 +835,7 @@ func TestUserSignupWithMissingApprovalPolicyTreatedAsManual(t *testing.T) {
 
 func TestUserSignupMURCreateFails(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup(Approved())
@@ -807,11 +863,14 @@ func TestUserSignupMURCreateFails(t *testing.T) {
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: userSignup.Name, Namespace: req.Namespace}, userSignup)
 	require.NoError(t, err)
 	assert.Equal(t, "approved", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 
 }
 
 func TestUserSignupMURReadFails(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup(Approved())
@@ -838,11 +897,14 @@ func TestUserSignupMURReadFails(t *testing.T) {
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: userSignup.Name, Namespace: req.Namespace}, userSignup)
 	require.NoError(t, err)
 	assert.Equal(t, "approved", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 
 }
 
 func TestUserSignupSetStatusApprovedByAdminFails(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup(Approved())
@@ -871,11 +933,14 @@ func TestUserSignupSetStatusApprovedByAdminFails(t *testing.T) {
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: userSignup.Name, Namespace: req.Namespace}, userSignup)
 	require.NoError(t, err)
 	assert.Equal(t, "approved", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupProvisionedTotal) // zero since starting state was approved
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupUniqueTotal)      // zero since starting state was approved
 	assert.Empty(t, userSignup.Status.Conditions)
 }
 
 func TestUserSignupSetStatusApprovedAutomaticallyFails(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup()
@@ -903,12 +968,15 @@ func TestUserSignupSetStatusApprovedAutomaticallyFails(t *testing.T) {
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: userSignup.Name, Namespace: req.Namespace}, userSignup)
 	require.NoError(t, err)
 	assert.Equal(t, "not-ready", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 	assert.Empty(t, userSignup.Status.Conditions)
 
 }
 
 func TestUserSignupSetStatusNoClustersAvailableFails(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup()
@@ -940,11 +1008,14 @@ func TestUserSignupSetStatusNoClustersAvailableFails(t *testing.T) {
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: userSignup.Name, Namespace: req.Namespace}, userSignup)
 	require.NoError(t, err)
 	assert.Equal(t, "pending", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 
 }
 
 func TestUserSignupWithExistingMUROK(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup()
@@ -982,6 +1053,8 @@ func TestUserSignupWithExistingMUROK(t *testing.T) {
 	err = r.client.Get(context.TODO(), key, instance)
 	require.NoError(t, err)
 	assert.Equal(t, "approved", instance.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 
 	require.Equal(t, mur.Name, instance.Status.CompliantUsername)
 	test.AssertContainsCondition(t, instance.Status.Conditions, v1alpha1.Condition{
@@ -993,6 +1066,7 @@ func TestUserSignupWithExistingMUROK(t *testing.T) {
 
 func TestUserSignupWithExistingMURDifferentUserIDOK(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup(Approved())
@@ -1033,6 +1107,8 @@ func TestUserSignupWithExistingMURDifferentUserIDOK(t *testing.T) {
 	err = r.client.Get(context.TODO(), key, instance)
 	require.NoError(t, err)
 	assert.Equal(t, "approved", instance.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 
 	t.Run("second reconcile", func(t *testing.T) {
 		// when
@@ -1044,6 +1120,8 @@ func TestUserSignupWithExistingMURDifferentUserIDOK(t *testing.T) {
 		err = r.client.Get(context.TODO(), key, instance)
 		require.NoError(t, err)
 		assert.Equal(t, "approved", instance.Labels[v1alpha1.UserSignupStateLabelKey])
+		AssertMetricsCounterEquals(t, 1, metrics.UserSignupProvisionedTotal)
+		AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 
 		require.Equal(t, "foo-2", instance.Status.CompliantUsername)
 
@@ -1069,6 +1147,7 @@ func TestUserSignupWithExistingMURDifferentUserIDOK(t *testing.T) {
 
 func TestUserSignupWithSpecialCharOK(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup(WithUsername("foo#$%^bar@redhat.com"))
@@ -1084,6 +1163,8 @@ func TestUserSignupWithSpecialCharOK(t *testing.T) {
 
 	murtest.AssertThatMasterUserRecord(t, "foo-bar", r.client).HasNoConditions()
 	AssertThatCounterHas(t, 2)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 }
 
 func TestUserSignupDeactivatedAfterMURCreated(t *testing.T) {
@@ -1109,6 +1190,7 @@ func TestUserSignupDeactivatedAfterMURCreated(t *testing.T) {
 
 	t.Run("when MUR exists, then it should be deleted", func(t *testing.T) {
 		// given
+		metrics.Reset()
 		InitializeCounter(t, 1)
 		defer counter.Reset()
 		mur := murtest.NewMasterUserRecord(t, "john-doe", murtest.MetaNamespace(test.HostOperatorNs))
@@ -1124,6 +1206,9 @@ func TestUserSignupDeactivatedAfterMURCreated(t *testing.T) {
 		err = r.client.Get(context.TODO(), key, userSignup)
 		require.NoError(t, err)
 		assert.Equal(t, "deactivated", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+		AssertMetricsCounterEquals(t, 1, metrics.UserSignupDeactivatedTotal)
+		AssertMetricsCounterEquals(t, 0, metrics.UserSignupProvisionedTotal) // 0 because usersignup was originally deactivated
+		AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)      // 1 because state was initially empty
 
 		// Confirm the status is now set to Deactivating
 		test.AssertConditionsMatch(t, userSignup.Status.Conditions,
@@ -1152,6 +1237,7 @@ func TestUserSignupDeactivatedAfterMURCreated(t *testing.T) {
 
 	t.Run("when MUR doesn't exist, then the condition should be set to Deactivated", func(t *testing.T) {
 		// given
+		metrics.Reset()
 		InitializeCounter(t, 2)
 		defer counter.Reset()
 		r, req, _ := prepareReconcile(t, userSignup.Name, NewGetMemberClusters(), userSignup, NewHostOperatorConfigWithReset(t, test.AutomaticApproval().Enabled()), basicNSTemplateTier)
@@ -1166,6 +1252,9 @@ func TestUserSignupDeactivatedAfterMURCreated(t *testing.T) {
 		err = r.client.Get(context.TODO(), key, userSignup)
 		require.NoError(t, err)
 		assert.Equal(t, "deactivated", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+		AssertMetricsCounterEquals(t, 0, metrics.UserSignupDeactivatedTotal) // zero because state didn't change
+		AssertMetricsCounterEquals(t, 0, metrics.UserSignupProvisionedTotal)
+		AssertMetricsCounterEquals(t, 0, metrics.UserSignupUniqueTotal)
 
 		// Confirm the status has been set to Deactivated
 		test.AssertConditionsMatch(t, userSignup.Status.Conditions,
@@ -1220,11 +1309,13 @@ func TestUserSignupFailedToCreateDeactivationNotification(t *testing.T) {
 			CompliantUsername: "john-doe",
 		},
 	}
+	userSignup.Labels[v1alpha1.UserSignupStateLabelKey] = "deactivated"
 	userSignup.Labels["toolchain.dev.openshift.com/approved"] = "true"
 	key := test.NamespacedName(test.HostOperatorNs, userSignup.Name)
 
 	t.Run("when the deactivation notification cannot be created", func(t *testing.T) {
 		// given
+		metrics.Reset()
 		InitializeCounter(t, 2)
 		defer counter.Reset()
 		r, req, cl := prepareReconcile(t, userSignup.Name, NewGetMemberClusters(), userSignup, NewHostOperatorConfigWithReset(t, test.AutomaticApproval().Enabled()), basicNSTemplateTier)
@@ -1267,6 +1358,10 @@ func TestUserSignupFailedToCreateDeactivationNotification(t *testing.T) {
 				Message: "unable to create deactivation notification",
 			})
 		AssertThatCounterHas(t, 2)
+		assert.Equal(t, "deactivated", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+		AssertMetricsCounterEquals(t, 0, metrics.UserSignupDeactivatedTotal) // zero because state didn't change
+		AssertMetricsCounterEquals(t, 0, metrics.UserSignupProvisionedTotal)
+		AssertMetricsCounterEquals(t, 0, metrics.UserSignupUniqueTotal)
 
 		// A deactivated notification should not have been created
 		notification := &v1alpha1.Notification{}
@@ -1288,12 +1383,13 @@ func TestUserSignupReactivateAfterDeactivated(t *testing.T) {
 			CompliantUsername: "john-doe",
 		},
 	}
-	userSignup.Labels["toolchain.dev.openshift.com/approved"] = "true"
 	key := test.NamespacedName(test.HostOperatorNs, userSignup.Name)
 
 	t.Run("when reactivating the usersignup successfully", func(t *testing.T) {
 		// given
 		// start with a usersignup that has the Notification Created status set to "true" but Spec.Deactivated is set to "false" which signals a user which has been just reactivated.
+		userSignup.Labels[v1alpha1.UserSignupStateLabelKey] = "deactivated"
+		userSignup.Labels["toolchain.dev.openshift.com/approved"] = "true"
 		userSignup.Status.Conditions = []v1alpha1.Condition{
 			{
 				Type:   v1alpha1.UserSignupComplete,
@@ -1311,6 +1407,7 @@ func TestUserSignupReactivateAfterDeactivated(t *testing.T) {
 				Reason: "NotificationCRCreated",
 			},
 		}
+		metrics.Reset()
 		InitializeCounter(t, 2)
 		defer counter.Reset()
 		ready := NewGetMemberClusters(NewMemberCluster(t, "member1", v1.ConditionTrue))
@@ -1347,6 +1444,11 @@ func TestUserSignupReactivateAfterDeactivated(t *testing.T) {
 		// A mur should be created so the counter should be 3
 		AssertThatCounterHas(t, 3)
 
+		assert.Equal(t, "approved", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+		AssertMetricsCounterEquals(t, 0, metrics.UserSignupDeactivatedTotal)
+		AssertMetricsCounterEquals(t, 1, metrics.UserSignupProvisionedTotal)
+		AssertMetricsCounterEquals(t, 0, metrics.UserSignupUniqueTotal)
+
 		// There should not be a notification created because the user was reactivated
 		ntest.AssertNoNotificationsExist(t, r.client)
 	})
@@ -1354,6 +1456,8 @@ func TestUserSignupReactivateAfterDeactivated(t *testing.T) {
 	t.Run("when resetting the usersignup deactivation notification status fails", func(t *testing.T) {
 		// given
 		// start with a usersignup that has the Notification Created status set to "true" but Spec.Deactivated is set to "false" which signals a user which has been just reactivated.
+		userSignup.Labels[v1alpha1.UserSignupStateLabelKey] = "deactivated"
+		userSignup.Labels["toolchain.dev.openshift.com/approved"] = "true"
 		userSignup.Status.Conditions = []v1alpha1.Condition{
 			{
 				Type:   v1alpha1.UserSignupComplete,
@@ -1371,6 +1475,7 @@ func TestUserSignupReactivateAfterDeactivated(t *testing.T) {
 				Reason: "NotificationCRCreated",
 			},
 		}
+		metrics.Reset()
 		InitializeCounter(t, 2)
 		defer counter.Reset()
 		r, req, cl := prepareReconcile(t, userSignup.Name, NewGetMemberClusters(), userSignup, NewHostOperatorConfigWithReset(t, test.AutomaticApproval().Enabled()), basicNSTemplateTier)
@@ -1414,6 +1519,12 @@ func TestUserSignupReactivateAfterDeactivated(t *testing.T) {
 			})
 		AssertThatCounterHas(t, 2)
 
+		// State is still deactivated because the status update failed
+		assert.Equal(t, "deactivated", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+		AssertMetricsCounterEquals(t, 0, metrics.UserSignupDeactivatedTotal)
+		AssertMetricsCounterEquals(t, 0, metrics.UserSignupProvisionedTotal)
+		AssertMetricsCounterEquals(t, 0, metrics.UserSignupUniqueTotal)
+
 		// A deactivation notification should not be created because this is the reactivation case
 		ntest.AssertNoNotificationsExist(t, r.client)
 	})
@@ -1443,10 +1554,12 @@ func TestUserSignupDeactivatingWhenMURExists(t *testing.T) {
 		},
 	}
 	userSignup.Labels["toolchain.dev.openshift.com/approved"] = "true"
+	userSignup.Labels[v1alpha1.UserSignupStateLabelKey] = "approved"
 	key := test.NamespacedName(test.HostOperatorNs, userSignup.Name)
 
 	t.Run("when MUR exists, then it should be deleted", func(t *testing.T) {
 		// given
+		metrics.Reset()
 		InitializeCounter(t, 1)
 		defer counter.Reset()
 		mur := murtest.NewMasterUserRecord(t, "edward-jones", murtest.MetaNamespace(test.HostOperatorNs))
@@ -1466,6 +1579,9 @@ func TestUserSignupDeactivatingWhenMURExists(t *testing.T) {
 			err = r.client.Get(context.TODO(), key, userSignup)
 			require.NoError(t, err)
 			assert.Equal(t, "deactivated", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+			AssertMetricsCounterEquals(t, 1, metrics.UserSignupDeactivatedTotal)
+			AssertMetricsCounterEquals(t, 0, metrics.UserSignupProvisionedTotal)
+			AssertMetricsCounterEquals(t, 0, metrics.UserSignupUniqueTotal)
 
 			// Confirm the status is still set to Deactivating
 			test.AssertConditionsMatch(t, userSignup.Status.Conditions,
@@ -1518,15 +1634,21 @@ func TestUserSignupDeactivatingWhenMURExists(t *testing.T) {
 					Status: v1.ConditionTrue,
 					Reason: "NotificationCRCreated",
 				})
+			// metrics should be the same after the 2nd reconcile
+			AssertMetricsCounterEquals(t, 1, metrics.UserSignupDeactivatedTotal)
+			AssertMetricsCounterEquals(t, 0, metrics.UserSignupProvisionedTotal)
+			AssertMetricsCounterEquals(t, 0, metrics.UserSignupUniqueTotal)
 		})
 	})
 }
 
 func TestUserSignupBanned(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup()
+	userSignup.Labels[v1alpha1.UserSignupStateLabelKey] = "approved"
 
 	bannedUser := &v1alpha1.BannedUser{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1550,6 +1672,10 @@ func TestUserSignupBanned(t *testing.T) {
 	err = r.client.Get(context.TODO(), test.NamespacedName(test.HostOperatorNs, userSignup.Name), userSignup)
 	require.NoError(t, err)
 	assert.Equal(t, "banned", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupBannedTotal)
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupDeactivatedTotal)
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupUniqueTotal)
 
 	// Confirm the status is set to Banned
 	test.AssertConditionsMatch(t, userSignup.Status.Conditions,
@@ -1571,6 +1697,7 @@ func TestUserSignupBanned(t *testing.T) {
 
 func TestUserSignupVerificationRequired(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup(VerificationRequired())
@@ -1585,6 +1712,10 @@ func TestUserSignupVerificationRequired(t *testing.T) {
 	err = r.client.Get(context.TODO(), test.NamespacedName(test.HostOperatorNs, userSignup.Name), userSignup)
 	require.NoError(t, err)
 	assert.Equal(t, "not-ready", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupBannedTotal)
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupDeactivatedTotal)
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 
 	// Confirm the status is set to VerificationRequired
 	test.AssertConditionsMatch(t, userSignup.Status.Conditions,
@@ -1609,6 +1740,7 @@ func TestUserSignupVerificationRequired(t *testing.T) {
 
 func TestUserSignupBannedMURExists(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup()
@@ -1626,6 +1758,7 @@ func TestUserSignupBannedMURExists(t *testing.T) {
 		},
 		CompliantUsername: "foo",
 	}
+	userSignup.Labels[v1alpha1.UserSignupStateLabelKey] = "approved"
 	userSignup.Labels["toolchain.dev.openshift.com/approved"] = "true"
 
 	bannedUser := &v1alpha1.BannedUser{
@@ -1653,6 +1786,10 @@ func TestUserSignupBannedMURExists(t *testing.T) {
 	err = r.client.Get(context.TODO(), key, userSignup)
 	require.NoError(t, err)
 	assert.Equal(t, "banned", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupBannedTotal)
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupDeactivatedTotal)
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupUniqueTotal)
 
 	// Confirm the status is set to Banning
 	test.AssertConditionsMatch(t, userSignup.Status.Conditions,
@@ -1684,6 +1821,11 @@ func TestUserSignupBannedMURExists(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, "banned", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+		// metrics should be the same after the 2nd reconcile
+		AssertMetricsCounterEquals(t, 1, metrics.UserSignupBannedTotal)
+		AssertMetricsCounterEquals(t, 0, metrics.UserSignupDeactivatedTotal)
+		AssertMetricsCounterEquals(t, 0, metrics.UserSignupProvisionedTotal)
+		AssertMetricsCounterEquals(t, 0, metrics.UserSignupUniqueTotal)
 
 		// Confirm the status is now set to Banned
 		test.AssertConditionsMatch(t, userSignup.Status.Conditions,
@@ -1708,6 +1850,7 @@ func TestUserSignupBannedMURExists(t *testing.T) {
 
 func TestUserSignupListBannedUsersFails(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup()
@@ -1728,6 +1871,7 @@ func TestUserSignupListBannedUsersFails(t *testing.T) {
 
 func TestUserSignupDeactivatedButMURDeleteFails(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := &v1alpha1.UserSignup{
@@ -1751,6 +1895,7 @@ func TestUserSignupDeactivatedButMURDeleteFails(t *testing.T) {
 			CompliantUsername: "alice-mayweather",
 		},
 	}
+	userSignup.Labels[v1alpha1.UserSignupStateLabelKey] = "approved"
 	userSignup.Labels["toolchain.dev.openshift.com/approved"] = "true"
 
 	key := test.NamespacedName(test.HostOperatorNs, userSignup.Name)
@@ -1780,6 +1925,9 @@ func TestUserSignupDeactivatedButMURDeleteFails(t *testing.T) {
 		err = r.client.Get(context.TODO(), key, userSignup)
 		require.NoError(t, err)
 		assert.Equal(t, "deactivated", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+		AssertMetricsCounterEquals(t, 1, metrics.UserSignupDeactivatedTotal)
+		AssertMetricsCounterEquals(t, 0, metrics.UserSignupProvisionedTotal)
+		AssertMetricsCounterEquals(t, 0, metrics.UserSignupUniqueTotal)
 
 		// Confirm the status is set to UnableToDeleteMUR
 		test.AssertConditionsMatch(t, userSignup.Status.Conditions,
@@ -1795,17 +1943,23 @@ func TestUserSignupDeactivatedButMURDeleteFails(t *testing.T) {
 				Message: "unable to delete mur",
 			})
 		AssertThatCounterHas(t, 1)
-	})
 
-	t.Run("second reconcile - there should not be a notification created since the mur deletion failed even if reconciled again", func(t *testing.T) {
-		_, err := r.Reconcile(req)
-		require.Error(t, err)
-		ntest.AssertNoNotificationsExist(t, r.client)
+		t.Run("second reconcile - there should not be a notification created since the mur deletion failed even if reconciled again", func(t *testing.T) {
+			_, err := r.Reconcile(req)
+			require.Error(t, err)
+			ntest.AssertNoNotificationsExist(t, r.client)
+			// the metrics should be the same, deactivation should only be counted once
+			AssertMetricsCounterEquals(t, 1, metrics.UserSignupDeactivatedTotal)
+			AssertMetricsCounterEquals(t, 0, metrics.UserSignupProvisionedTotal)
+			AssertMetricsCounterEquals(t, 0, metrics.UserSignupUniqueTotal)
+		})
 	})
 }
 
+// TestDeathBy100Signups tests the logic of generateCompliantUsername() which allows no more than 100 attempts to find a vacant name
 func TestDeathBy100Signups(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 100)
 	defer counter.Reset()
 	userSignup := NewUserSignup(Approved())
@@ -1814,6 +1968,7 @@ func TestDeathBy100Signups(t *testing.T) {
 	args = append(args, userSignup)
 	args = append(args, NewHostOperatorConfigWithReset(t, test.AutomaticApproval().Enabled()))
 
+	// create 100 MURs that follow the naming pattern used by generateCompliantUsername()
 	args = append(args, &v1alpha1.MasterUserRecord{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo",
@@ -1849,6 +2004,9 @@ func TestDeathBy100Signups(t *testing.T) {
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: userSignup.Name, Namespace: req.Namespace}, userSignup)
 	require.NoError(t, err)
 	assert.Equal(t, "approved", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupDeactivatedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 
 	test.AssertConditionsMatch(t, userSignup.Status.Conditions,
 		v1alpha1.Condition{
@@ -1873,6 +2031,7 @@ func TestDeathBy100Signups(t *testing.T) {
 
 func TestUserSignupWithMultipleExistingMURNotOK(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup()
@@ -1926,10 +2085,14 @@ func TestUserSignupWithMultipleExistingMURNotOK(t *testing.T) {
 		},
 	)
 	AssertThatCounterHas(t, 1)
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupDeactivatedTotal)
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 }
 
 func TestUserSignupNoMembersAvailableFails(t *testing.T) {
 	// given
+	metrics.Reset()
 	InitializeCounter(t, 1)
 	defer counter.Reset()
 	userSignup := NewUserSignup(Approved())
@@ -1946,6 +2109,9 @@ func TestUserSignupNoMembersAvailableFails(t *testing.T) {
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: userSignup.Name, Namespace: req.Namespace}, userSignup)
 	require.NoError(t, err)
 	assert.Equal(t, "approved", userSignup.Labels[v1alpha1.UserSignupStateLabelKey])
+	AssertMetricsCounterEquals(t, 0, metrics.UserSignupDeactivatedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupProvisionedTotal)
+	AssertMetricsCounterEquals(t, 1, metrics.UserSignupUniqueTotal)
 
 }
 
