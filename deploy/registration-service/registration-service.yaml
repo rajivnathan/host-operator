@@ -45,7 +45,6 @@ objects:
       - ""
       resources:
       - secrets
-      - configmaps
       verbs:
       - get
       - list
@@ -172,10 +171,6 @@ objects:
                     configMapKeyRef:
                       name: registration-service
                       key: twilio.from_number
-              resources:
-                requests:
-                  cpu: "50m"
-                  memory: "100M"
   - kind: Service
     apiVersion: v1
     metadata:
