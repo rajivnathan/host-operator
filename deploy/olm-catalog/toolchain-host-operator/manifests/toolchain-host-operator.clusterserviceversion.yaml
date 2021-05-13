@@ -214,6 +214,9 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
+    - kind: ToolchainConfig
+      name: ToolchainConfigs.toolchain.dev.openshift.com
+      version: v1alpha1
     - description: BannedUser is used to maintain a list of banned e-mail addresses
       displayName: Banned User
       kind: BannedUser
