@@ -1351,7 +1351,7 @@ data:
         scope: Namespaced
         versions:
         - additionalPrinterColumns:
-          - jsonPath: .spec.automaticApproval.enabled
+          - jsonPath: .spec.host.automaticApproval.enabled
             name: AutomaticApproval
             type: boolean
           name: v1alpha1
@@ -1447,6 +1447,21 @@ data:
                       description: Contains all member operator configurations for all member
                         clusters
                       properties:
+                        default:
+                          description: Defines default configuration to be applied to all
+                            member clusters
+                          properties:
+                            status:
+                              description: Keeps parameters concerned with member status
+                              properties:
+                                refreshPeriod:
+                                  description: Defines the period between refreshes of the
+                                    member status
+                                  type: string
+                              required:
+                              - refreshPeriod
+                              type: object
+                          type: object
                         specificPerMemberCluster:
                           additionalProperties:
                             description: MemberOperatorConfigSpec contains all configuration
@@ -1465,16 +1480,6 @@ data:
                             type: object
                           description: A map of cluster-specific member operator configurations
                             indexed by member toolchaincluster name
-                          type: object
-                        status:
-                          description: Keeps parameters concerned with member status
-                          properties:
-                            refreshPeriod:
-                              description: Defines the period between refreshes of the member
-                                status
-                              type: string
-                          required:
-                          - refreshPeriod
                           type: object
                       type: object
                   type: object
