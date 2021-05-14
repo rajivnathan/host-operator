@@ -1,13 +1,13 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: ToolchainConfigs.toolchain.dev.openshift.com
+  name: toolchainconfigs.toolchain.dev.openshift.com
 spec:
   group: toolchain.dev.openshift.com
   names:
     kind: ToolchainConfig
     listKind: ToolchainConfigList
-    plural: ToolchainConfigs
+    plural: toolchainconfigs
     singular: toolchainconfig
   scope: Namespaced
   versions:
@@ -18,8 +18,8 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ToolchainConfig keeps all configuration parameters needed in
-          host operator
+        description: ToolchainConfig keeps all configuration parameters needed for
+          host and member operators
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -34,8 +34,8 @@ spec:
           metadata:
             type: object
           spec:
-            description: ToolchainConfigSpec contains all configuration parameters
-              of the host operator
+            description: ToolchainConfigSpec contains all configuration for host and
+              member operators
             properties:
               host:
                 description: Contains all host operator configuration
@@ -111,7 +111,7 @@ spec:
                   specificPerMemberCluster:
                     additionalProperties:
                       description: MemberOperatorConfigSpec contains all configuration
-                        parameters of the host operator
+                        parameters of the member operator
                       properties:
                         status:
                           description: Keeps parameters concerned with member status

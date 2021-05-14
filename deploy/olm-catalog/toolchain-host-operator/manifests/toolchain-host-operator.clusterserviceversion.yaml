@@ -214,9 +214,6 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - kind: ToolchainConfig
-      name: ToolchainConfigs.toolchain.dev.openshift.com
-      version: v1alpha1
     - description: BannedUser is used to maintain a list of banned e-mail addresses
       displayName: Banned User
       kind: BannedUser
@@ -271,6 +268,12 @@ spec:
       displayName: Toolchain Cluster
       kind: ToolchainCluster
       name: toolchainclusters.toolchain.dev.openshift.com
+      version: v1alpha1
+    - description: ToolchainConfig keeps all configuration parameters needed for host
+        and member operators
+      displayName: Toolchain Operator Config
+      kind: ToolchainConfig
+      name: toolchainconfigs.toolchain.dev.openshift.com
       version: v1alpha1
     - description: ToolchainStatus is used to track overall toolchain status
       displayName: CodeReady Toolchain Status

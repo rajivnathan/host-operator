@@ -1340,13 +1340,13 @@ data:
     - apiVersion: apiextensions.k8s.io/v1
       kind: CustomResourceDefinition
       metadata:
-        name: ToolchainConfigs.toolchain.dev.openshift.com
+        name: toolchainconfigs.toolchain.dev.openshift.com
       spec:
         group: toolchain.dev.openshift.com
         names:
           kind: ToolchainConfig
           listKind: ToolchainConfigList
-          plural: ToolchainConfigs
+          plural: toolchainconfigs
           singular: toolchainconfig
         scope: Namespaced
         versions:
@@ -1357,8 +1357,8 @@ data:
           name: v1alpha1
           schema:
             openAPIV3Schema:
-              description: ToolchainConfig keeps all configuration parameters needed in
-                host operator
+              description: ToolchainConfig keeps all configuration parameters needed for
+                host and member operators
               properties:
                 apiVersion:
                   description: 'APIVersion defines the versioned schema of this representation
@@ -1373,8 +1373,8 @@ data:
                 metadata:
                   type: object
                 spec:
-                  description: ToolchainConfigSpec contains all configuration parameters
-                    of the host operator
+                  description: ToolchainConfigSpec contains all configuration for host and
+                    member operators
                   properties:
                     host:
                       description: Contains all host operator configuration
@@ -1450,7 +1450,7 @@ data:
                         specificPerMemberCluster:
                           additionalProperties:
                             description: MemberOperatorConfigSpec contains all configuration
-                              parameters of the host operator
+                              parameters of the member operator
                             properties:
                               status:
                                 description: Keeps parameters concerned with member status
@@ -2501,9 +2501,6 @@ data:
         apiservicedefinitions: {}
         customresourcedefinitions:
           owned:
-          - kind: ToolchainConfig
-            name: ToolchainConfigs.toolchain.dev.openshift.com
-            version: v1alpha1
           - description: BannedUser is used to maintain a list of banned e-mail addresses
             displayName: Banned User
             kind: BannedUser
@@ -2558,6 +2555,12 @@ data:
             displayName: Toolchain Cluster
             kind: ToolchainCluster
             name: toolchainclusters.toolchain.dev.openshift.com
+            version: v1alpha1
+          - description: ToolchainConfig keeps all configuration parameters needed for host
+              and member operators
+            displayName: Toolchain Operator Config
+            kind: ToolchainConfig
+            name: toolchainconfigs.toolchain.dev.openshift.com
             version: v1alpha1
           - description: ToolchainStatus is used to track overall toolchain status
             displayName: CodeReady Toolchain Status
