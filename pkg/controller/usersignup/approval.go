@@ -38,7 +38,7 @@ func getClusterIfApproved(cl client.Client, crtConfig *crtCfg.Config, userSignup
 		return false, unknown, errors.Wrapf(err, "unable to read ToolchainConfig resource")
 	}
 
-	if !userSignup.Spec.Approved && !config.AutomaticApprovalEnabled() {
+	if !userSignup.Spec.Approved && !config.AutomaticApproval().IsEnabled() {
 		return false, unknown, nil
 	}
 
@@ -60,22 +60,22 @@ func getClusterIfApproved(cl client.Client, crtConfig *crtCfg.Config, userSignup
 
 func hasNotReachedMaxNumberOfUsersThreshold(config toolchainconfig.Config, counts counter.Counts) cluster.Condition {
 	return func(cluster *cluster.CachedToolchainCluster) bool {
-		if config.AutomaticApprovalMaxNumberOfUsersOverall() != 0 {
-			if config.AutomaticApprovalMaxNumberOfUsersOverall() <= counts.MasterUserRecordCount {
+		if config.AutomaticApproval().MaxNumberOfUsersOverall() != 0 {
+			if config.AutomaticApproval().MaxNumberOfUsersOverall() <= counts.MasterUserRecordCount {
 				return false
 			}
 		}
 		numberOfUserAccounts := counts.UserAccountsPerClusterCounts[cluster.Name]
-		threshold := config.AutomaticApprovalMaxNumberOfUsersSpecificPerMemberCluster()[cluster.Name]
+		threshold := config.AutomaticApproval().MaxNumberOfUsersSpecificPerMemberCluster()[cluster.Name]
 		return threshold == 0 || numberOfUserAccounts < threshold
 	}
 }
 
 func hasEnoughResources(config toolchainconfig.Config, status *toolchainv1alpha1.ToolchainStatus) cluster.Condition {
 	return func(cluster *cluster.CachedToolchainCluster) bool {
-		threshold, found := config.AutomaticApprovalResourceCapacityThresholdSpecificPerMemberCluster()[cluster.Name]
+		threshold, found := config.AutomaticApproval().ResourceCapacityThresholdSpecificPerMemberCluster()[cluster.Name]
 		if !found {
-			threshold = config.AutomaticApprovalResourceCapacityThresholdDefault()
+			threshold = config.AutomaticApproval().ResourceCapacityThresholdDefault()
 		}
 		if threshold == 0 {
 			return true
