@@ -8,7 +8,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/codeready-toolchain/host-operator/pkg/controller/hostoperatorconfig"
+	"github.com/codeready-toolchain/host-operator/pkg/controller/toolchainconfig"
 	errors2 "github.com/pkg/errors"
 
 	"github.com/codeready-toolchain/toolchain-common/pkg/condition"
@@ -86,7 +86,7 @@ func (r *Reconciler) Reconcile(request reconcile.Request) (reconcile.Result, err
 	logger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	logger.Info("Reconciling Deactivation")
 
-	config, err := hostoperatorconfig.GetConfig(r.client, request.Namespace)
+	config, err := toolchainconfig.GetConfig(r.client, request.Namespace)
 	if err != nil {
 		return reconcile.Result{}, errors2.Wrapf(err, "unable to read HostOperatorConfig resource")
 	}
@@ -173,7 +173,7 @@ func (r *Reconciler) Reconcile(request reconcile.Request) (reconcile.Result, err
 
 	timeSinceProvisioned := time.Since(provisionedTimestamp.Time)
 
-	deactivatingNotificationTimeout := time.Duration((deactivationTimeoutDays-config.Deactivation.DeactivatingNotificationDays)*24) * time.Hour
+	deactivatingNotificationTimeout := time.Duration((deactivationTimeoutDays-config.DeactivationDeactivatingNotificationDays())*24) * time.Hour
 
 	if timeSinceProvisioned < deactivatingNotificationTimeout {
 		// It is not yet time to send the deactivating notification so requeue until it will be time to send it
@@ -218,7 +218,7 @@ func (r *Reconciler) Reconcile(request reconcile.Request) (reconcile.Result, err
 		return reconcile.Result{Requeue: true, RequeueAfter: time.Duration(10) * time.Second}, nil
 	}
 
-	deactivationDueTime := deactivatingCondition.LastTransitionTime.Time.Add(time.Duration(config.Deactivation.DeactivatingNotificationDays*24) * time.Hour)
+	deactivationDueTime := deactivatingCondition.LastTransitionTime.Time.Add(time.Duration(config.DeactivationDeactivatingNotificationDays()*24) * time.Hour)
 
 	if time.Now().Before(deactivationDueTime) {
 		// It is not yet time to deactivate so requeue when it will be

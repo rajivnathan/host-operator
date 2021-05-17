@@ -5,7 +5,7 @@ import (
 
 	toolchainv1alpha1 "github.com/codeready-toolchain/api/pkg/apis/toolchain/v1alpha1"
 	crtCfg "github.com/codeready-toolchain/host-operator/pkg/configuration"
-	"github.com/codeready-toolchain/host-operator/pkg/controller/hostoperatorconfig"
+	"github.com/codeready-toolchain/host-operator/pkg/controller/toolchainconfig"
 	"github.com/codeready-toolchain/host-operator/pkg/counter"
 	"github.com/codeready-toolchain/toolchain-common/pkg/cluster"
 	"github.com/pkg/errors"
@@ -33,12 +33,12 @@ func (c targetCluster) getClusterName() string {
 // capacity thresholds and the actual use if there is any suitable member cluster. If it is not then it returns false as the first value and
 // targetCluster unknown as the second value.
 func getClusterIfApproved(cl client.Client, crtConfig *crtCfg.Config, userSignup *toolchainv1alpha1.UserSignup, getMemberClusters cluster.GetMemberClustersFunc) (bool, targetCluster, error) {
-	config, err := hostoperatorconfig.GetConfig(cl, userSignup.Namespace)
+	config, err := toolchainconfig.GetConfig(cl, userSignup.Namespace)
 	if err != nil {
-		return false, unknown, errors.Wrapf(err, "unable to read HostOperatorConfig resource")
+		return false, unknown, errors.Wrapf(err, "unable to read ToolchainConfig resource")
 	}
 
-	if !userSignup.Spec.Approved && !config.AutomaticApproval.Enabled {
+	if !userSignup.Spec.Approved && !config.AutomaticApprovalEnabled() {
 		return false, unknown, nil
 	}
 
@@ -58,24 +58,24 @@ func getClusterIfApproved(cl client.Client, crtConfig *crtCfg.Config, userSignup
 	return true, targetCluster(clusterName), nil
 }
 
-func hasNotReachedMaxNumberOfUsersThreshold(config toolchainv1alpha1.HostOperatorConfigSpec, counts counter.Counts) cluster.Condition {
+func hasNotReachedMaxNumberOfUsersThreshold(config toolchainconfig.Config, counts counter.Counts) cluster.Condition {
 	return func(cluster *cluster.CachedToolchainCluster) bool {
-		if config.AutomaticApproval.MaxNumberOfUsers.Overall != 0 {
-			if config.AutomaticApproval.MaxNumberOfUsers.Overall <= counts.MasterUserRecordCount {
+		if config.AutomaticApprovalMaxNumberOfUsersOverall() != 0 {
+			if config.AutomaticApprovalMaxNumberOfUsersOverall() <= counts.MasterUserRecordCount {
 				return false
 			}
 		}
 		numberOfUserAccounts := counts.UserAccountsPerClusterCounts[cluster.Name]
-		threshold := config.AutomaticApproval.MaxNumberOfUsers.SpecificPerMemberCluster[cluster.Name]
+		threshold := config.AutomaticApprovalMaxNumberOfUsersSpecificPerMemberCluster()[cluster.Name]
 		return threshold == 0 || numberOfUserAccounts < threshold
 	}
 }
 
-func hasEnoughResources(config toolchainv1alpha1.HostOperatorConfigSpec, status *toolchainv1alpha1.ToolchainStatus) cluster.Condition {
+func hasEnoughResources(config toolchainconfig.Config, status *toolchainv1alpha1.ToolchainStatus) cluster.Condition {
 	return func(cluster *cluster.CachedToolchainCluster) bool {
-		threshold, found := config.AutomaticApproval.ResourceCapacityThreshold.SpecificPerMemberCluster[cluster.Name]
+		threshold, found := config.AutomaticApprovalResourceCapacityThresholdSpecificPerMemberCluster()[cluster.Name]
 		if !found {
-			threshold = config.AutomaticApproval.ResourceCapacityThreshold.DefaultThreshold
+			threshold = config.AutomaticApprovalResourceCapacityThresholdDefault()
 		}
 		if threshold == 0 {
 			return true
