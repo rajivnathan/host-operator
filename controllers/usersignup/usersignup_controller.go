@@ -404,6 +404,29 @@ func (r *Reconciler) setStateLabel(logger logr.Logger, userSignup *toolchainv1al
 	return nil
 }
 
+func (r *Reconciler) setPreferredClusterAnnotation(logger logr.Logger, userSignup *toolchainv1alpha1.UserSignup, state string) error {
+	oldState := userSignup.Labels[toolchainv1alpha1.UserSignupStateLabelKey]
+	if oldState == state {
+		// skipping
+		return nil
+	}
+	userSignup.Labels[toolchainv1alpha1.UserSignupStateLabelKey] = state
+	activations := 0
+	if state == toolchainv1alpha1.UserSignupStateLabelValueApproved {
+		activations = r.updateActivationCounterAnnotation(logger, userSignup)
+	}
+	if err := r.Client.Update(context.TODO(), userSignup); err != nil {
+		return r.wrapErrorWithStatusUpdate(logger, userSignup, r.setStatusFailedToUpdateStateLabel, err,
+			"unable to update state label at UserSignup resource")
+	}
+	updateUserSignupMetricsByState(oldState, state)
+	// increment the counter *only if the client update did not fail*
+	domain := metrics.GetEmailDomain(userSignup)
+	counter.UpdateUsersPerActivationCounters(logger, activations, domain) // will ignore if `activations == 0`
+
+	return nil
+}
+
 func updateUserSignupMetricsByState(oldState, newState string) {
 	if oldState == "" {
 		metrics.UserSignupUniqueTotal.Inc()
