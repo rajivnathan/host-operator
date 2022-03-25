@@ -153,14 +153,20 @@ spec:
                         resource spec
                       type: string
                     startTime:
-                      description: StartTime is the time when the NSTemplateTier was
-                        updated
+                      description: StartTime is the time when the NSTemplateTier update
+                        was started
+                      format: date-time
+                      type: string
+                    updateTime:
+                      description: UpdateTime is the time when the NSTemplateTier
+                        was updated
                       format: date-time
                       type: string
                   required:
                   - failures
                   - hash
                   - startTime
+                  - updateTime
                   type: object
                 type: array
                 x-kubernetes-list-map-keys:
